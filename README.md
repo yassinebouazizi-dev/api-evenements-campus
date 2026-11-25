@@ -1,58 +1,114 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# api-evenements-campus
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## Description
 
-## About Laravel
+`api-evenements-campus` est une API REST Laravel 13 dédiée à la gestion des événements et activités des clubs étudiants sur le campus. Les visiteurs peuvent consulter les événements publiés, filtrer par club ou par thème et voir le nombre d'événements par club. Les organisateurs authentifiés par jeton Sanctum peuvent publier, modifier ou supprimer leurs propres événements.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Les quatre rôles
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Rôle | Modèle | Équivalent | Description |
+|---|---|---|---|
+| Propriétaire | `User` | Organisateur | Utilisateur authentifié qui crée et gère ses événements (`hasMany`) |
+| Ressource principale | `Event` | Événement | Activité sur le campus avec titre, slug, résumé, description, lieu, `max_seats`, `starts_at` et `is_published` |
+| Ressource parente | `Club` | Club organisateur | Entité organisatrice (`name`, `slug` unique), exposée en lecture seule avec `events_count` |
+| Étiquette | `Theme` | Thème | Mot-clé thématique lié en N:N aux événements via `event_theme` |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Installation
 
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+### Bash
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+git clone https://github.com/yassinebouazizi-dev/api-evenements-campus.git
+cd api-evenements-campus
+composer install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite
+php artisan migrate:fresh --seed
+php artisan test
+php artisan serve
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+### PowerShell
 
-## Contributing
+```powershell
+git clone https://github.com/yassinebouazizi-dev/api-evenements-campus.git
+cd api-evenements-campus
+composer install
+copy .env.example .env
+php artisan key:generate
+New-Item -ItemType File -Force database\database.sqlite
+php artisan migrate:fresh --seed
+php artisan test
+php artisan serve
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+L'API est accessible sur `http://localhost:8000`.
 
-## Code of Conduct
+## Comptes de test
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Le seeder crée 3 utilisateurs (tous avec le mot de passe `password`) :
 
-## Security Vulnerabilities
+| Rôle | E-mail | Mot de passe |
+|---|---|---|
+| Organisateur 1 | `test@example.com` | `password` |
+| Organisateur 2 & 3 | 2 comptes générés par `UserFactory` | `password` |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Endpoints
 
-## License
+Toutes les requêtes doivent envoyer l'en-tête `Accept: application/json`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Méthode | URI | Accès | Description |
+|---|---|---|---|
+| POST | `/api/login` | Public | Authentifie un utilisateur et renvoie un jeton Bearer (`201`) |
+| POST | `/api/logout` | `auth:sanctum` | Révoque le jeton courant (`204`) |
+| GET | `/api/user` | `auth:sanctum` | Renvoie le profil de l'utilisateur connecté (`200`) |
+| GET | `/api/events` | Public | Liste paginée des événements publiés (`?per_page=`, `?club=<slug>`, `?theme=<slug>`) |
+| GET | `/api/events/{event}` | Public | Détail d'un événement (`404` si inexistant) |
+| POST | `/api/events` | `auth:sanctum` | Crée un événement pour l'utilisateur connecté et synchronise ses thèmes (`201`) |
+| PUT/PATCH | `/api/events/{event}` | `auth:sanctum` + `EventPolicy` | Met à jour un événement (propriétaire uniquement) |
+| DELETE | `/api/events/{event}` | `auth:sanctum` + `EventPolicy` | Supprime un événement (`204`, propriétaire uniquement) |
+| GET | `/api/clubs` | Public | Liste des clubs avec `events_count` (événements publiés uniquement) |
+| GET | `/api/clubs/{club}` | Public | Détail d'un club avec `events_count` (`404` si inexistant) |
+
+## Authentification par jeton
+
+1. Appeler `POST /api/login` avec `{"email": "test@example.com", "password": "password"}`.
+2. L'API renvoie `201 Created` avec `token` et `token_type: "Bearer"`.
+3. Envoyer `Authorization: Bearer VOTRE_JETON` sur les routes protégées.
+4. Appeler `POST /api/logout` pour supprimer le jeton courant.
+
+## Codes d'erreur
+
+| Code | Signification |
+|---|---|
+| `401` | Jeton absent, invalide ou révoqué (`{"message": "Unauthenticated."}`) |
+| `403` | Action refusée par `EventPolicy` (modification ou suppression d'un événement appartenant à un autre utilisateur) |
+| `404` | Ressource introuvable en JSON |
+| `422` | Données invalides ou identifiants incorrects (messages en français) |
+
+## Exemple curl.exe
+
+Créer un événement avec un jeton Bearer :
+
+```powershell
+curl.exe -X POST -H "Accept: application/json" -H "Content-Type: application/json" -H "Authorization: Bearer VOTRE_JETON" -d "{\"club_id\":1,\"title\":\"Atelier Docker\",\"slug\":\"atelier-docker\",\"summary\":\"Initiation aux conteneurs.\",\"description\":\"Atelier pratique de 2h en salle B12.\",\"location\":\"Salle B12\",\"max_seats\":30,\"starts_at\":\"2026-12-15 14:00:00\",\"is_published\":true,\"themes\":[1,2]}" http://localhost:8000/api/events
+```
+
+## Collection Postman
+
+La collection exportée au format v2.1 se trouve dans `docs/postman/api-evenements-campus.postman_collection.json`. Elle définit les variables `base_url` (`http://localhost:8000`) et `token` (vide par défaut) ; la requête **Connexion** enregistre automatiquement le jeton reçu dans `token` pour les requêtes suivantes.
+
+## Choix d'architecture
+
+### Pourquoi la ressource principale appartient-elle à l'utilisateur, et que protège la Policy ?
+
+L'événement (`Event`) est la ressource créée et gérée par un organisateur de club : c'est donc lui qui porte `user_id`. Dans le contexte du campus, `EventPolicy` empêche qu'un étudiant ou un autre club puisse modifier le lieu, réduire le nombre de places (`max_seats`) ou supprimer l'événement d'un autre organisateur.
+
+### À quel besoin réel d'un utilisateur de l'API répond le filtre ?
+
+Un étudiant qui consulte le calendrier du campus cherche souvent les activités d'un club précis (par exemple : « quels événements organise le Club Robotique ? ») sans avoir à parcourir toutes les pages de `/api/events`. Le filtre `?club=<slug>` répond directement à ce besoin avec une comparaison exacte du slug validée par `IndexEventRequest`.
+
+### Quelle requête produirait un problème N+1 sans with(), et comment l'avez-vous évité ?
+
+Sur `GET /api/events`, `EventResource` expose l'organisateur (`user`), le club (`club`) et les thèmes (`themes`) de chaque événement paginé : sans `with('user', 'club', 'themes')`, chaque élément de la page déclencherait des requêtes SQL supplémentaires. J'ai évité cela en chargeant ces trois relations avec `with()` dans `EventController@index` et en activant `Model::preventLazyLoading(! app()->isProduction())` dans `AppServiceProvider`, ce qui lève immédiatement une exception si un chargement anticipé est oublié.
